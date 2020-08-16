@@ -462,11 +462,14 @@ export async function procJsonFile(jsonFile: string): AsyncErrorResult {
     if (settings.useParallel) {
         let id = 1;
         settings.emlFile.forEach(f => {
-            sendMessages(settings, [f], id);
+            sendMessages(settings, [f], id).then(res => {
+                if (!res.ok)
+                    console.log(`error: ${jsonFile}: ${res.msg!}`);
+            });
             id += 1;
         });
     } else {
-        await sendMessages(settings, settings.emlFile)
+        return await sendMessages(settings, settings.emlFile)
     }
 
     return {ok: true};
@@ -486,7 +489,7 @@ async function main(): Promise<void> {
     for (let jsonFile of Deno.args) {
         const res = await procJsonFile(jsonFile);
         if (!res.ok)
-            console.log(`${jsonFile}: ${res.msg!}`);
+            console.log(`error: ${jsonFile}: ${res.msg!}`);
     }
 }
 
