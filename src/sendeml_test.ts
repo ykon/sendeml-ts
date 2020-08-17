@@ -401,3 +401,86 @@ Deno.test("isPositiveReply", () => {
     assertEquals(eml.isPositiveReply("xxx 200"), false);
     assertEquals(eml.isPositiveReply("xxx 300"), false);
 });
+
+function makeTestSendCmd(expected: string): eml.SendCmd {
+    return async (cmd: string) => {
+        assertEquals(cmd, expected);
+        return {ok: true, msg: cmd}
+    }
+}
+
+Deno.test("sendHello", () => {
+    eml.sendHello(makeTestSendCmd("EHLO localhost"));
+});
+
+Deno.test("sendFrom", () => {
+    eml.sendFrom(makeTestSendCmd("MAIL FROM: <a001@ah62.example.jp>"), "a001@ah62.example.jp");
+});
+
+Deno.test("sendRcptTo", () => {
+    let count = 1;
+    const test = async (cmd: string) => {
+        assertEquals(`RCPT TO: <a00${count}@ah62.example.jp>`, cmd);
+        count += 1;
+        return {ok: true, msg: cmd};
+    };
+
+    eml.sendRcptTo(test, ["a001@ah62.example.jp", "a002@ah62.example.jp", "a003@ah62.example.jp"]);
+});
+
+Deno.test("sendData", () => {
+    eml.sendData(makeTestSendCmd("DATA"));
+});
+
+Deno.test("sendCrlfDot", () => {
+    eml.sendCrlfDot(makeTestSendCmd("\r\n."));
+});
+
+Deno.test("sendQuit", () => {
+    eml.sendQuit(makeTestSendCmd("QUIT"));
+});
+
+Deno.test("sendRset", () => {
+    eml.sendRset(makeTestSendCmd("RSET"));
+});
+
+Deno.test("checkJsonValue", () => {
+    const jsonStr = `{"test": "172.16.3.151"}`;
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonStr), "test", "string").ok, true);
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonStr), "test", "number").ok, false);
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonStr), "test", "boolean").ok, false);
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonStr), "test", "boolean").msg!, "test: Invalid type: 172.16.3.151");
+
+    const jsonNumber = `{"test": 172}`;
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonNumber), "test", "number").ok, true);
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonNumber), "test", "string").ok, false);
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonNumber), "test", "boolean").ok, false);
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonNumber), "test", "boolean").msg!, "test: Invalid type: 172");
+
+    const jsonTrue = `{"test": true}`;
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonTrue), "test", "boolean").ok, true);
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonTrue), "test", "string").ok, false);
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonTrue), "test", "number").ok, false);
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonTrue), "test", "number").msg!, "test: Invalid type: true");
+
+    const jsonFalse = `{"test": false}`;
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonFalse), "test", "boolean").ok, true);
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonFalse), "test", "string").ok, false);
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonFalse), "test", "number").ok, false);
+    assertEquals(eml.checkJsonValue(JSON.parse(jsonFalse), "test", "number").msg!, "test: Invalid type: false");
+});
+
+Deno.test("checkJsonArrayValue", () => {
+    const jsonStr = `{"test": "172.16.3.151"}`;
+    const arrayRes = eml.checkJsonArrayValue(JSON.parse(jsonStr), "test", "string");
+    assertEquals(arrayRes.ok, false);
+    assertEquals(arrayRes.msg!, "test: Invalid type (array): 172.16.3.151");
+
+    const jsonArray = JSON.parse(`{"test": ["172.16.3.151", "172.16.3.152", "172.16.3.153"]}`);
+    assertEquals(eml.checkJsonArrayValue(jsonArray, "test", "string").ok, true);
+
+    const jsonInvalidArray = JSON.parse(`{"test": ["172.16.3.151", "172.16.3.152", 172]}`);
+    const invalidRes = eml.checkJsonArrayValue(jsonInvalidArray, "test", "string");
+    assertEquals(invalidRes.ok, false);
+    assertEquals(invalidRes.msg!, "test: Invalid type (element): 172");
+});

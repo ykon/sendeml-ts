@@ -3,7 +3,7 @@
 
 import { BufReader } from "https://deno.land/std/io/bufio.ts";
 
-const VERSION: number = 1.0;
+const VERSION: string = "1.0";
 
 const CR: number = "\r".charCodeAt(0);
 const LF: number = "\n".charCodeAt(0);
@@ -276,19 +276,19 @@ async function getSettings(jsonFile: string): Promise<{ok: boolean, json?: any, 
     return getSettingsFromText(await Deno.readTextFile(jsonFile));
 }
 
-function checkJsonValue(json: any, name: string, type: string): ErrorResult {
+export function checkJsonValue(json: any, name: string, type: string): ErrorResult {
     if (name in json) {
         if (typeof json[name] !== type)
-            return makeError(`${name}: Invalid type`);
+            return makeError(`${name}: Invalid type: ${json[name]}`);
     }
 
     return {ok: true};
 }
 
-function checkJsonArrayValue(json: any, name: string, type: string): ErrorResult {
+export function checkJsonArrayValue(json: any, name: string, type: string): ErrorResult {
     if (name in json) {
         if (!Array.isArray(json[name]))
-            return makeError(`${name}: Invalid type (array)`);
+            return makeError(`${name}: Invalid type (array): ${json[name]}`);
 
         const elm = json[name].find((v: any) => typeof v !== type);
         if (elm)
@@ -361,7 +361,7 @@ async function recvLine(reader: BufReader, id?: number): CmdResult {
     }
 }
 
-type SendCmd = (cmd: string) => CmdResult;
+export type SendCmd = (cmd: string) => CmdResult;
 
 function makeSendCmd(conn: Deno.Conn, reader: BufReader, id?: number): SendCmd {
     return async (cmd: string) => {
@@ -459,7 +459,7 @@ export async function procJsonFile(jsonFile: string): AsyncErrorResult {
 
     const settings = mapSettings(json);
 
-    if (settings.useParallel) {
+    if (settings.useParallel && settings.emlFile.length > 1) {
         let id = 1;
         settings.emlFile.forEach(f => {
             sendMessages(settings, [f], id).then(res => {
