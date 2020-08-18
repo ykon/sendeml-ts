@@ -189,8 +189,8 @@ function makeIdPrefix(id?: number) {
     return id ? `id: ${id}, ` : "";
 }
 
-type ErrorResult = {ok: boolean, msg?: string};
-type AsyncErrorResult = Promise<ErrorResult>;
+export type ErrorResult = {ok: boolean, msg?: string};
+export type AsyncErrorResult = Promise<ErrorResult>;
 
 function makeError(msg: string): ErrorResult {
     return {ok: false, msg: msg};

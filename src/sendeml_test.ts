@@ -445,42 +445,54 @@ Deno.test("sendRset", () => {
 });
 
 Deno.test("checkJsonValue", () => {
+    function check(jsonStr: string, type: string): eml.ErrorResult {
+        return eml.checkJsonValue(JSON.parse(jsonStr), "test", type);
+    }
+
+    function checkError(jsonStr: string, type: string, expected: string) {
+        const res = check(jsonStr, type);
+        assertEquals(res.ok, false);
+        assertEquals(res.msg!, expected);
+    }
+
     const jsonStr = `{"test": "172.16.3.151"}`;
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonStr), "test", "string").ok, true);
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonStr), "test", "number").ok, false);
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonStr), "test", "boolean").ok, false);
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonStr), "test", "boolean").msg!, "test: Invalid type: 172.16.3.151");
+    assertEquals(check(jsonStr, "string").ok, true);
+    assertEquals(check(jsonStr, "number").ok, false);
+    checkError(jsonStr, "boolean", "test: Invalid type: 172.16.3.151");
 
     const jsonNumber = `{"test": 172}`;
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonNumber), "test", "number").ok, true);
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonNumber), "test", "string").ok, false);
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonNumber), "test", "boolean").ok, false);
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonNumber), "test", "boolean").msg!, "test: Invalid type: 172");
+    assertEquals(check(jsonNumber, "number").ok, true);
+    assertEquals(check(jsonNumber, "string").ok, false);
+    checkError(jsonNumber, "boolean", "test: Invalid type: 172");
 
     const jsonTrue = `{"test": true}`;
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonTrue), "test", "boolean").ok, true);
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonTrue), "test", "string").ok, false);
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonTrue), "test", "number").ok, false);
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonTrue), "test", "number").msg!, "test: Invalid type: true");
+    assertEquals(check(jsonTrue, "boolean").ok, true);
+    assertEquals(check(jsonTrue, "string").ok, false);
+    checkError(jsonTrue, "number", "test: Invalid type: true");
 
     const jsonFalse = `{"test": false}`;
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonFalse), "test", "boolean").ok, true);
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonFalse), "test", "string").ok, false);
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonFalse), "test", "number").ok, false);
-    assertEquals(eml.checkJsonValue(JSON.parse(jsonFalse), "test", "number").msg!, "test: Invalid type: false");
+    assertEquals(check(jsonFalse, "boolean").ok, true);
+    assertEquals(check(jsonFalse, "string").ok, false);
+    checkError(jsonFalse, "number", "test: Invalid type: false");
 });
 
 Deno.test("checkJsonArrayValue", () => {
+    function check(jsonStr: string, type: string): eml.ErrorResult {
+        return eml.checkJsonArrayValue(JSON.parse(jsonStr), "test", type);
+    }
+
+    function checkError(jsonStr: string, type: string, expected: string) {
+        const res = check(jsonStr, type);
+        assertEquals(res.ok, false);
+        assertEquals(res.msg!, expected);
+    }
+
+    const jsonArray = `{"test": ["172.16.3.151", "172.16.3.152", "172.16.3.153"]}`;
+    assertEquals(check(jsonArray, "string").ok, true);
+
     const jsonStr = `{"test": "172.16.3.151"}`;
-    const arrayRes = eml.checkJsonArrayValue(JSON.parse(jsonStr), "test", "string");
-    assertEquals(arrayRes.ok, false);
-    assertEquals(arrayRes.msg!, "test: Invalid type (array): 172.16.3.151");
+    checkError(jsonStr, "string", "test: Invalid type (array): 172.16.3.151");
 
-    const jsonArray = JSON.parse(`{"test": ["172.16.3.151", "172.16.3.152", "172.16.3.153"]}`);
-    assertEquals(eml.checkJsonArrayValue(jsonArray, "test", "string").ok, true);
-
-    const jsonInvalidArray = JSON.parse(`{"test": ["172.16.3.151", "172.16.3.152", 172]}`);
-    const invalidRes = eml.checkJsonArrayValue(jsonInvalidArray, "test", "string");
-    assertEquals(invalidRes.ok, false);
-    assertEquals(invalidRes.msg!, "test: Invalid type (element): 172");
+    const jsonInvalidArray = `{"test": ["172.16.3.151", "172.16.3.152", 172]}`;
+    checkError(jsonInvalidArray, "string", "test: Invalid type (element): 172");
 });
