@@ -353,8 +353,8 @@ Deno.test("getAndMapSettings", () => {
     assertEquals(settings.smtpHost, "172.16.3.151");
     assertEquals(settings.smtpPort, 25);
     assertEquals(settings.fromAddress, "a001@ah62.example.jp");
-    assertEquals(settings.toAddress, ["a001@ah62.example.jp", "a002@ah62.example.jp", "a003@ah62.example.jp"]);
-    assertEquals(settings.emlFile, ["test1.eml", "test2.eml", "test3.eml"])
+    assertEquals(settings.toAddresses, ["a001@ah62.example.jp", "a002@ah62.example.jp", "a003@ah62.example.jp"]);
+    assertEquals(settings.emlFiles, ["test1.eml", "test2.eml", "test3.eml"])
     assertEquals(settings.updateDate, true);
     assertEquals(settings.updateMessageId, true);
     assertEquals(settings.useParallel, false);
@@ -370,8 +370,8 @@ Deno.test("checkSettings", () => {
     assertEquals(checkNoKey("smtpHost").ok, false);
     assertEquals(checkNoKey("smtpPort").ok, false);
     assertEquals(checkNoKey("fromAddress").ok, false);
-    assertEquals(checkNoKey("toAddress").ok, false);
-    assertEquals(checkNoKey("emlFile").ok, false);
+    assertEquals(checkNoKey("toAddresses").ok, false);
+    assertEquals(checkNoKey("emlFiles").ok, false);
 
     assertEquals(checkNoKey("updateDate").ok, true);
     assertEquals(checkNoKey("updateMessageId").ok, true);

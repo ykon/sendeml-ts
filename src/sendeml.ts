@@ -212,12 +212,12 @@ export function makeJsonSample(): string {
     "smtpHost": "172.16.3.151",
     "smtpPort": 25,
     "fromAddress": "a001@ah62.example.jp",
-    "toAddress": [
+    "toAddresses": [
         "a001@ah62.example.jp",
         "a002@ah62.example.jp",
         "a003@ah62.example.jp"
     ],
-    "emlFile": [
+    "emlFiles": [
         "test1.eml",
         "test2.eml",
         "test3.eml"
@@ -252,8 +252,8 @@ interface Settings {
     smtpHost: string;
     smtpPort: number;
     fromAddress: string;
-    toAddress: string[];
-    emlFile: string[];
+    toAddresses: string[];
+    emlFiles: string[];
     updateDate: boolean;
     updateMessageId: boolean;
     useParallel: boolean;
@@ -264,8 +264,8 @@ export function mapSettings(json: any): Settings {
         smtpHost: json.smtpHost,
         smtpPort: json.smtpPort,
         fromAddress: json.fromAddress,
-        toAddress: json.toAddress,
-        emlFile: json.emlFile,
+        toAddresses: json.toAddresses,
+        emlFiles: json.emlFiles,
         updateDate: json.updateDate ?? true,
         updateMessageId: json.updateMessageId ?? true,
         useParallel: json.useParallel ?? false
@@ -299,7 +299,7 @@ export function checkJsonArrayValue(json: any, name: string, type: string): Erro
 }
 
 export function checkSettings(json: any): ErrorResult {
-    const names = ["smtpHost", "smtpPort", "fromAddress", "toAddress", "emlFile"];
+    const names = ["smtpHost", "smtpPort", "fromAddress", "toAddresses", "emlFiles"];
     const key = names.find(n => !(n in json));
     if (key)
         return makeError(`${key} key does not exist`);
@@ -308,8 +308,8 @@ export function checkSettings(json: any): ErrorResult {
         checkJsonValue(json, "smtpHost", "string"),
         checkJsonValue(json, "smtpPort", "number"),
         checkJsonValue(json, "fromAddress", "string"),
-        checkJsonArrayValue(json, "toAddress", "string"),
-        checkJsonArrayValue(json, "emlFile", "string"),
+        checkJsonArrayValue(json, "toAddresses", "string"),
+        checkJsonArrayValue(json, "emlFiles", "string"),
         checkJsonValue(json, "updateDate", "boolean"),
         checkJsonValue(json, "updateMessageId", "boolean"),
         checkJsonValue(json, "useParallel", "boolean")
@@ -426,7 +426,7 @@ async function sendMessages(settings: Settings, emlFiles: string[], id?: number)
             }
 
             await sendFrom(send, settings.fromAddress);
-            await sendRcptTo(send, settings.toAddress);
+            await sendRcptTo(send, settings.toAddresses);
             await sendData(send);
 
             const res = await sendMail(conn, file, settings.updateDate, settings.updateMessageId, id);
@@ -459,9 +459,9 @@ export async function procJsonFile(jsonFile: string): AsyncErrorResult {
 
     const settings = mapSettings(json);
 
-    if (settings.useParallel && settings.emlFile.length > 1) {
+    if (settings.useParallel && settings.emlFiles.length > 1) {
         let id = 1;
-        settings.emlFile.forEach(f => {
+        settings.emlFiles.forEach(f => {
             sendMessages(settings, [f], id).then(res => {
                 if (!res.ok)
                     console.log(`error: ${jsonFile}: ${res.msg!}`);
@@ -469,7 +469,7 @@ export async function procJsonFile(jsonFile: string): AsyncErrorResult {
             id += 1;
         });
     } else {
-        return await sendMessages(settings, settings.emlFile)
+        return await sendMessages(settings, settings.emlFiles)
     }
 
     return {ok: true};
