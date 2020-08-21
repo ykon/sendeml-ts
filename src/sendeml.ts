@@ -172,17 +172,19 @@ export function splitMail(fileBuf: Uint8Array): {ok: boolean, res?: [Uint8Array,
     return {ok: true, res: [header, body]};
 }
 
-export function replaceMail(fileBuf: Uint8Array, updateDate: boolean, updateMessageId: boolean): {ok: boolean, res?: Uint8Array} {
+export function replaceMail(fileBuf: Uint8Array, updateDate: boolean, updateMessageId: boolean): Uint8Array {
     if (isNotUpdate(updateDate, updateMessageId))
-        return {ok: true, res: fileBuf};
+        return fileBuf;
 
     const mail = splitMail(fileBuf);
-    if (!mail.ok)
-        return {ok: false};
+    if (!mail.ok) {
+        console.log("error: Invalid mail: Disable updateDate, updateMessageId");
+        return fileBuf;
+    }
 
     const [header, body] = mail.res!;
     const replHeader = replaceHeader(header, updateDate, updateMessageId);
-    return {ok: true, res: combineMail(replHeader, body)};
+    return combineMail(replHeader, body);
 }
 
 function makeIdPrefix(id?: number) {
@@ -196,15 +198,11 @@ function makeError(msg: string): ErrorResult {
     return {ok: false, msg: msg};
 }
 
-async function sendMail(conn: Deno.Conn, file: string, updateDate: boolean, updateMessageId: boolean, id?: number): AsyncErrorResult {
+async function sendMail(conn: Deno.Conn, file: string, updateDate: boolean, updateMessageId: boolean, id?: number): Promise<void> {
     console.log(makeIdPrefix(id) + `send: ${file}`);
 
     const buf = replaceMail(await Deno.readFile(file), updateDate, updateMessageId);
-    if (!buf.ok)
-        return makeError("Invalid mail");
-
-    await Deno.writeAll(conn, buf.res!);
-    return {ok: true};
+    await Deno.writeAll(conn, buf);
 }
 
 export function makeJsonSample(): string {
@@ -428,11 +426,7 @@ async function sendMessages(settings: Settings, emlFiles: string[], id?: number)
             await sendFrom(send, settings.fromAddress);
             await sendRcptTo(send, settings.toAddresses);
             await sendData(send);
-
-            const res = await sendMail(conn, file, settings.updateDate, settings.updateMessageId, id);
-            if (!res.ok)
-                return makeError(`${file}: ${res.msg!}`);
-
+            await sendMail(conn, file, settings.updateDate, settings.updateMessageId, id);
             await sendCrlfDot(send);
             reset = true;
         }

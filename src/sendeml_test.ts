@@ -337,15 +337,15 @@ Deno.test("combineMail", () => {
 
 Deno.test("replaceMail", () => {
     const mail = makeSimpleMail();
-    const rMailNo = eml.replaceMail(mail, false, false).res!;
+    const rMailNo = eml.replaceMail(mail, false, false);
     assertEquals(rMailNo, mail);
 
-    const rMail = eml.replaceMail(mail, true, true).res!;
+    const rMail = eml.replaceMail(mail, true, true);
     assertNotEquals(rMail, mail);
     assertEquals(rMail.slice(rMail.length - 100), mail.slice(mail.length - 100));
 
     const invalidMail = makeInvalidMail();
-    assertEquals(eml.replaceMail(invalidMail, true, true).ok, false);
+    assertEquals(eml.replaceMail(invalidMail, true, true), invalidMail);
 });
 
 Deno.test("getAndMapSettings", () => {
