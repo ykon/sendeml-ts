@@ -1,5 +1,5 @@
-## About
-### SendEML is a testing tool for sending raw eml files.
+## SendEML
+A testing tool for sending raw eml files.
 * SendEML-ts runs on Deno 1.3.0 or newer.
   > [Deno - Installation](https://deno.land/#installation)
 
@@ -8,7 +8,7 @@
 deno run --allow-read --allow-net sendeml.ts <setting_file> ...
 ```
 
-## Setting File (sample)
+## Setting File (JSON format)
 ```
 {
     "smtpHost": "172.16.3.151",
