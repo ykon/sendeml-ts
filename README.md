@@ -1,6 +1,6 @@
 ## SendEML
 A testing tool for sending raw eml files.
-* SendEML-ts runs on Deno 1.3.0 or newer.
+* SendEML-ts runs on Deno 1.3.2 or newer.
   > [Deno - Installation](https://deno.land/#installation)
 
 ## Usage
