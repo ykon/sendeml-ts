@@ -335,17 +335,52 @@ Deno.test("combineMail", () => {
     assertEquals(newMail, mail);
 });
 
+Deno.test("dropFoldedLine", () => {
+    const fMail = makeFoldedMail();
+    const lines = eml.getRawLines(fMail);
+    assertEquals(eml.dropFoldedLine(lines), lines);
+
+    const f_lines = lines.slice(6);
+    assert(f_lines[0].toUtf8String().startsWith(" Sun,"));
+    const d_lines = eml.dropFoldedLine(f_lines);
+    assert(d_lines[0].toUtf8String().startsWith("User-Agent:"));
+});
+
+Deno.test("replaceDateLine", () => {
+    const fMail = makeFoldedMail();
+    const lines = eml.getRawLines(fMail);
+    const newLines = eml.replaceDateLine(lines);
+    assertNotEquals(newLines, lines);
+
+    const newMail = eml.concatBytes(newLines);
+    assertNotEquals(newMail, fMail);
+    assertNotEquals(getDateLine(newMail), getDateLine(fMail));
+    assertEquals(getMessageIdLine(newMail), getMessageIdLine(fMail));
+});
+
+Deno.test("replaceMessageIdLine", () => {
+    const fMail = makeFoldedMail();
+    const lines = eml.getRawLines(fMail);
+    const newLines = eml.replaceMessageIdLine(lines);
+    assertNotEquals(newLines, lines);
+
+    const newMail = eml.concatBytes(newLines);
+    assertNotEquals(newMail, fMail);
+    assertNotEquals(getMessageIdLine(newMail), getMessageIdLine(fMail));
+    assertEquals(getDateLine(newMail), getDateLine(fMail));
+});
+
 Deno.test("replaceMail", () => {
     const mail = makeSimpleMail();
     const rMailNo = eml.replaceMail(mail, false, false);
-    assertEquals(rMailNo, mail);
+    assertEquals(rMailNo.res!!, mail);
 
     const rMail = eml.replaceMail(mail, true, true);
     assertNotEquals(rMail, mail);
-    assertEquals(rMail.slice(rMail.length - 100), mail.slice(mail.length - 100));
+    assertEquals(rMail.res!!.slice(rMail.res!!.length - 100), mail.slice(mail.length - 100));
 
     const invalidMail = makeInvalidMail();
-    assertEquals(eml.replaceMail(invalidMail, true, true), invalidMail);
+    assertEquals(eml.replaceMail(invalidMail, true, true).ok, false);
 });
 
 Deno.test("getAndMapSettings", () => {

@@ -40,10 +40,10 @@ export function findAllLfIndices(buf: Uint8Array): number[] {
 }
 
 
-export function getRawLines(header: Uint8Array): Uint8Array[] {
+export function getRawLines(bytes: Uint8Array): Uint8Array[] {
     let offset = 0;
-    return findAllLfIndices(header).concat(header.length - 1).map(i => {
-        const line = header.slice(offset, i + 1);
+    return findAllLfIndices(bytes).concat(bytes.length - 1).map(i => {
+        const line = bytes.slice(offset, i + 1);
         offset = i + 1;
         return line;
     });
@@ -112,33 +112,39 @@ export function isFoldedLine(bytes: Uint8Array): boolean {
     return isWsp(bytes[0] ?? 0)
 }
 
+export function dropFoldedLine(lines: Uint8Array[]): Uint8Array[] {
+    const idx = lines.findIndex(l => !isFoldedLine(l));
+    return (idx <= 0) ? lines : lines.slice(idx);
+}
+
+function replaceLine(lines: Uint8Array[], matchLine: (line: Uint8Array) => boolean, makeLine: () => string): Uint8Array[] {
+    const idx = lines.findIndex(matchLine);
+    if (idx === -1)
+        return lines;
+
+    const p1 = lines.slice(0, idx);
+    const p2 = new TextEncoder().encode(makeLine());
+    const p3 = dropFoldedLine(lines.slice(idx + 1));
+
+    return p1.concat([p2], p3);
+}
+
+export function replaceDateLine(lines: Uint8Array[]): Uint8Array[] {
+    return replaceLine(lines, isDateLine, makeNowDateLine);
+}
+
+export function replaceMessageIdLine(lines: Uint8Array[]): Uint8Array[] {
+    return replaceLine(lines, isMessageIdLine, makeRandomMessageIdLine);
+}
+
 export function replaceHeader(header: Uint8Array, updateDate: boolean, updateMessageId: boolean): Uint8Array {
-    if (isNotUpdate(updateDate, updateMessageId))
-        return header;
-
-    function removeFolding(lines: Uint8Array[], idx: number) {
-        for (let i = idx; i < lines.length; i++) {
-            if (isFoldedLine(lines[i]))
-                lines[i] = new Uint8Array(0);
-            else
-                break;
-        }
-    }
-
-    function replaceLine(lines: Uint8Array[], update: boolean, matchLine: (line: Uint8Array) => boolean, makeLine: () => string) {
-        if (update) {
-            const idx = lines.findIndex(matchLine);
-            if (idx !== -1) {
-                lines[idx] = (new TextEncoder()).encode(makeLine());
-                removeFolding(lines, idx + 1);
-            }
-        }
-    }
-
     const lines = getRawLines(header);
-    replaceLine(lines, updateDate, isDateLine, makeNowDateLine);
-    replaceLine(lines, updateMessageId, isMessageIdLine, makeRandomMessageIdLine);
-    return concatBytes(lines);
+    const [d, m] = [updateDate, updateMessageId]
+    const newLines = (d && m) ? replaceMessageIdLine(replaceDateLine(lines))
+        : (d && !m) ? replaceDateLine(lines)
+        : (!d && m) ? replaceMessageIdLine(lines)
+        : lines;
+    return concatBytes(newLines);
 }
 
 const EMPTY_LINE: Uint8Array = Uint8Array.from([CR, LF, CR, LF]);
@@ -147,44 +153,42 @@ export function combineMail(header: Uint8Array, body: Uint8Array): Uint8Array {
     return concatBytes([header, EMPTY_LINE, body]);
 }
 
-export function findEmptyLine(fileBuf: Uint8Array): number {
+export function findEmptyLine(bytes: Uint8Array): number {
     let offset = 0;
     while (true) {
-        const idx = findCrIndex(fileBuf, offset);
-        if (idx === -1 || (idx + 3) >= fileBuf.length)
+        const idx = findCrIndex(bytes, offset);
+        if (idx === -1 || (idx + 3) >= bytes.length)
             return -1;
 
-        if (fileBuf[idx + 1] === LF && fileBuf[idx + 2] === CR && fileBuf[idx + 3] === LF)
+        if (bytes[idx + 1] === LF && bytes[idx + 2] === CR && bytes[idx + 3] === LF)
             return idx;
 
         offset = idx + 1;
     }
 }
 
-export function splitMail(fileBuf: Uint8Array): {ok: boolean, res?: [Uint8Array, Uint8Array]} {
-    const idx = findEmptyLine(fileBuf);
+export function splitMail(bytes: Uint8Array): {ok: boolean, res?: [Uint8Array, Uint8Array]} {
+    const idx = findEmptyLine(bytes);
     if (idx === -1)
         return {ok: false};
 
-    const header = fileBuf.slice(0, idx);
-    const body = fileBuf.slice(idx + EMPTY_LINE.length, fileBuf.length);
+    const header = bytes.slice(0, idx);
+    const body = bytes.slice(idx + EMPTY_LINE.length, bytes.length);
 
     return {ok: true, res: [header, body]};
 }
 
-export function replaceMail(fileBuf: Uint8Array, updateDate: boolean, updateMessageId: boolean): Uint8Array {
+export function replaceMail(bytes: Uint8Array, updateDate: boolean, updateMessageId: boolean): {ok: boolean, res?: Uint8Array} {
     if (isNotUpdate(updateDate, updateMessageId))
-        return fileBuf;
+        return {ok: true, res: bytes};
 
-    const mail = splitMail(fileBuf);
-    if (!mail.ok) {
-        console.log("error: Invalid mail: Disable updateDate, updateMessageId");
-        return fileBuf;
-    }
+    const mail = splitMail(bytes);
+    if (!mail.ok)
+        return {ok: false};
 
     const [header, body] = mail.res!;
     const replHeader = replaceHeader(header, updateDate, updateMessageId);
-    return combineMail(replHeader, body);
+    return {ok: true, res: combineMail(replHeader, body)}
 }
 
 function makeIdPrefix(id?: number) {
@@ -201,8 +205,12 @@ function makeError(msg: string): ErrorResult {
 async function sendMail(conn: Deno.Conn, file: string, updateDate: boolean, updateMessageId: boolean, id?: number): Promise<void> {
     console.log(makeIdPrefix(id) + `send: ${file}`);
 
-    const buf = replaceMail(await Deno.readFile(file), updateDate, updateMessageId);
-    await Deno.writeAll(conn, buf);
+    const mail = await Deno.readFile(file);
+    const replMail = replaceMail(mail, updateDate, updateMessageId);
+    if (!replMail.ok)
+        console.log("error: Invalid mail: Disable updateDate, updateMessageId");
+
+    await Deno.writeAll(conn, replMail.res ?? mail);
 }
 
 export function makeJsonSample(): string {
