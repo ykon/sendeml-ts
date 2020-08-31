@@ -4,7 +4,8 @@
 import {
     assert,
     assertEquals,
-    assertNotEquals
+    assertNotEquals,
+    assertThrows
 } from "https://deno.land/std/testing/asserts.ts";
 
 import * as eml from "./sendeml.ts";
@@ -26,17 +27,21 @@ Uint8Array.prototype.toUtf8String = function(this: Uint8Array): string {
     return new TextDecoder().decode(this);
 }
 
-Deno.test("matchHeaderField", () => {
+Deno.test("matchHeader", () => {
     const test = (s1: string, s2: string): boolean =>
-        eml.matchHeaderField(s1.toBytes(), s2.toBytes());
+        eml.matchHeader(s1.toBytes(), s2.toBytes());
 
     assertEquals(test("Test:", "Test:"), true);
     assertEquals(test("Test: ", "Test:"), true);
-    assertEquals(test("Test:x", "Test:"), true);
+    assertEquals(test("Test: xxx", "Test:"), true);
 
     assertEquals(test("", "Test:"), false);
     assertEquals(test("T", "Test:"), false);
     assertEquals(test("Test", "Test:"), false);
+
+    assertThrows(() =>{
+        eml.matchHeader("Test: xxx".toBytes(), "".toBytes());
+    }, Error);
 });
 
 Deno.test("isDateLine", () => {

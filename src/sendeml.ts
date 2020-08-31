@@ -59,24 +59,22 @@ export function concatBytes(bytesArray: Uint8Array[]): Uint8Array {
     return buf;
 }
 
-export function matchHeaderField(line: Uint8Array, header: Uint8Array): boolean {
+export function matchHeader(line: Uint8Array, header: Uint8Array): boolean {
+    if (header.length === 0)
+        throw new Error("header is empty");
+
     if (line.length < header.length)
         return false;
 
-    for (let i = 0; i < header.length; i++) {
-        if (header[i] !== line[i])
-            return false;
-    }
-
-    return true;
+    return header.every((v, i) => v === line[i]);
 }
 
 export function isDateLine(line: Uint8Array): boolean {
-    return matchHeaderField(line, DATE_BYTES);
+    return matchHeader(line, DATE_BYTES);
 }
 
 export function isMessageIdLine(line: Uint8Array): boolean {
-    return matchHeaderField(line, MESSAGE_ID_BYTES);
+    return matchHeader(line, MESSAGE_ID_BYTES);
 }
 
 export function makeNowDateLine(): string {
