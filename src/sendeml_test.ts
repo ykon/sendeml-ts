@@ -32,12 +32,13 @@ Deno.test("matchHeader", () => {
         eml.matchHeader(s1.toBytes(), s2.toBytes());
 
     assertEquals(test("Test:", "Test:"), true);
-    assertEquals(test("Test: ", "Test:"), true);
+    assertEquals(test("Test:   ", "Test:"), true);
     assertEquals(test("Test: xxx", "Test:"), true);
 
     assertEquals(test("", "Test:"), false);
     assertEquals(test("T", "Test:"), false);
     assertEquals(test("Test", "Test:"), false);
+    assertEquals(test("Xest:", "Test:"), false);
 
     assertThrows(() =>{
         eml.matchHeader("Test: xxx".toBytes(), "".toBytes());
@@ -210,23 +211,23 @@ Deno.test("getHeaderLine", () => {
     assertEquals(getMessageIdLine(eMessageId), "Message-ID:\r\n <b0e564a5-4f70-761a-e103-70119d1bcb32@ah62.example.jp>\r\n");
 });
 
-Deno.test("findCrIndex", () => {
+Deno.test("findCr", () => {
     const mail = makeSimpleMail();
-    assertEquals(eml.findCrIndex(mail, 0), 33);
-    assertEquals(eml.findCrIndex(mail, 34), 48);
-    assertEquals(eml.findCrIndex(mail, 58), 74);
+    assertEquals(eml.findCr(mail, 0), 33);
+    assertEquals(eml.findCr(mail, 34), 48);
+    assertEquals(eml.findCr(mail, 58), 74);
 });
 
-Deno.test("findLfIndex", () => {
+Deno.test("findLf", () => {
     const mail = makeSimpleMail();
-    assertEquals(eml.findLfIndex(mail, 0), 34);
-    assertEquals(eml.findLfIndex(mail, 35), 49);
-    assertEquals(eml.findLfIndex(mail, 59), 75);
+    assertEquals(eml.findLf(mail, 0), 34);
+    assertEquals(eml.findLf(mail, 35), 49);
+    assertEquals(eml.findLf(mail, 59), 75);
 });
 
-Deno.test("findAllLfIndices", () => {
+Deno.test("findAllLf", () => {
     const mail = makeSimpleMail();
-    const indices = eml.findAllLfIndices(mail);
+    const indices = eml.findAllLf(mail);
 
     assertEquals(indices[0], 34);
     assertEquals(indices[1], 49);
@@ -237,9 +238,9 @@ Deno.test("findAllLfIndices", () => {
     assertEquals(indices[indices.length - 1], 417);
 });
 
-Deno.test("getRawLines", () => {
+Deno.test("getLines", () => {
     const mail = makeSimpleMail();
-    const lines = eml.getRawLines(mail);
+    const lines = eml.getLines(mail);
 
     assertEquals(lines.length, 13);
     assertEquals(lines[0].toUtf8String(), "From: a001 <a001@ah62.example.jp>\r\n");
@@ -272,7 +273,7 @@ Deno.test("isFoldedLine", () => {
 
 Deno.test("concatBytes", () => {
     const mail = makeSimpleMail();
-    const lines = eml.getRawLines(mail);
+    const lines = eml.getLines(mail);
     const newMail = eml.concatBytes(lines);
     assertEquals(newMail, mail);
 });
@@ -312,6 +313,20 @@ Deno.test("replaceHeader", () => {
     assertEquals([...fMidLine].filter(c => c == "\n").length, 1);
 });
 
+const CR = eml.CR;
+const LF = eml.LF;
+
+Deno.test("hasNextLfCrLf", () => {
+    const zero = "\0".charCodeAt(0);
+
+    assertEquals(eml.hasNextLfCrLf(Uint8Array.of(CR, LF, CR, LF), 0), true);
+    assertEquals(eml.hasNextLfCrLf(Uint8Array.of(zero, CR, LF, CR, LF), 1), true);
+
+    assertEquals(eml.hasNextLfCrLf(Uint8Array.of(CR, LF, CR, LF), 1), false);
+    assertEquals(eml.hasNextLfCrLf(Uint8Array.of(CR, LF, CR, zero), 0), false);
+    assertEquals(eml.hasNextLfCrLf(Uint8Array.of(CR, LF, CR, LF, zero), 1), false);
+});
+
 Deno.test("findEmptyLine", () => {
     const mail = makeSimpleMail();
     assertEquals(eml.findEmptyLine(mail), 414);
@@ -342,7 +357,7 @@ Deno.test("combineMail", () => {
 
 Deno.test("dropFoldedLine", () => {
     const fMail = makeFoldedMail();
-    const lines = eml.getRawLines(fMail);
+    const lines = eml.getLines(fMail);
     assertEquals(eml.dropFoldedLine(lines), lines);
 
     const f_lines = lines.slice(6);
@@ -353,7 +368,7 @@ Deno.test("dropFoldedLine", () => {
 
 Deno.test("replaceDateLine", () => {
     const fMail = makeFoldedMail();
-    const lines = eml.getRawLines(fMail);
+    const lines = eml.getLines(fMail);
     const newLines = eml.replaceDateLine(lines);
     assertNotEquals(newLines, lines);
 
@@ -365,7 +380,7 @@ Deno.test("replaceDateLine", () => {
 
 Deno.test("replaceMessageIdLine", () => {
     const fMail = makeFoldedMail();
-    const lines = eml.getRawLines(fMail);
+    const lines = eml.getLines(fMail);
     const newLines = eml.replaceMessageIdLine(lines);
     assertNotEquals(newLines, lines);
 

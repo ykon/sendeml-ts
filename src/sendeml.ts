@@ -5,8 +5,8 @@ import { BufReader } from "https://deno.land/std/io/bufio.ts";
 
 const VERSION: string = "1.0";
 
-const CR: number = "\r".charCodeAt(0);
-const LF: number = "\n".charCodeAt(0);
+export const CR: number = "\r".charCodeAt(0);
+export const LF: number = "\n".charCodeAt(0);
 const SPACE: number = " ".charCodeAt(0);
 const HTAB: number = "\t".charCodeAt(0);
 export const CRLF: string = "\r\n";
@@ -18,19 +18,19 @@ export function isNotUpdate(updateDate: boolean, updateMessageId: boolean): bool
     return !updateDate && !updateMessageId;
 }
 
-export function findCrIndex(buf: Uint8Array, offset: number): number {
+export function findCr(buf: Uint8Array, offset: number): number {
     return buf.indexOf(CR, offset);
 }
 
-export function findLfIndex(buf: Uint8Array, offset: number): number {
+export function findLf(buf: Uint8Array, offset: number): number {
     return buf.indexOf(LF, offset);
 }
 
-export function findAllLfIndices(buf: Uint8Array): number[] {
+export function findAllLf(buf: Uint8Array): number[] {
     const indices = [];
     let offset = 0;
     while (true) {
-        const idx = findLfIndex(buf, offset);
+        const idx = findLf(buf, offset);
         if (idx === -1)
             return indices;
 
@@ -40,9 +40,9 @@ export function findAllLfIndices(buf: Uint8Array): number[] {
 }
 
 
-export function getRawLines(bytes: Uint8Array): Uint8Array[] {
+export function getLines(bytes: Uint8Array): Uint8Array[] {
     let offset = 0;
-    return findAllLfIndices(bytes).concat(bytes.length - 1).map(i => {
+    return findAllLf(bytes).concat(bytes.length - 1).map(i => {
         const line = bytes.slice(offset, i + 1);
         offset = i + 1;
         return line;
@@ -121,10 +121,10 @@ function replaceLine(lines: Uint8Array[], matchLine: (line: Uint8Array) => boole
         return lines;
 
     const p1 = lines.slice(0, idx);
-    const p2 = new TextEncoder().encode(makeLine());
+    const p2 = [new TextEncoder().encode(makeLine())];
     const p3 = dropFoldedLine(lines.slice(idx + 1));
 
-    return p1.concat([p2], p3);
+    return p1.concat(p2, p3);
 }
 
 export function replaceDateLine(lines: Uint8Array[]): Uint8Array[] {
@@ -136,7 +136,7 @@ export function replaceMessageIdLine(lines: Uint8Array[]): Uint8Array[] {
 }
 
 export function replaceHeader(header: Uint8Array, updateDate: boolean, updateMessageId: boolean): Uint8Array {
-    const lines = getRawLines(header);
+    const lines = getLines(header);
     const [d, m] = [updateDate, updateMessageId]
     const newLines = (d && m) ? replaceMessageIdLine(replaceDateLine(lines))
         : (d && !m) ? replaceDateLine(lines)
@@ -151,14 +151,21 @@ export function combineMail(header: Uint8Array, body: Uint8Array): Uint8Array {
     return concatBytes([header, EMPTY_LINE, body]);
 }
 
+export function hasNextLfCrLf(bytes: Uint8Array, idx: number): boolean {
+    if (bytes.length < (idx + 4))
+        return false;
+
+    const next = [LF, CR, LF];
+    return next.every((v, i) => v === bytes[i + idx + 1]);
+}
+
 export function findEmptyLine(bytes: Uint8Array): number {
     let offset = 0;
     while (true) {
-        const idx = findCrIndex(bytes, offset);
-        if (idx === -1 || (idx + 3) >= bytes.length)
+        const idx = findCr(bytes, offset);
+        if (idx === -1)
             return -1;
-
-        if (bytes[idx + 1] === LF && bytes[idx + 2] === CR && bytes[idx + 3] === LF)
+        if (hasNextLfCrLf(bytes, idx))
             return idx;
 
         offset = idx + 1;
