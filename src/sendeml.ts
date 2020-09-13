@@ -39,8 +39,9 @@ export function findAllLf(buf: Uint8Array): number[] {
     }
 }
 
+type Lines = Uint8Array[];
 
-export function getLines(bytes: Uint8Array): Uint8Array[] {
+export function getLines(bytes: Uint8Array): Lines {
     let offset = 0;
     return findAllLf(bytes).concat(bytes.length - 1).map(i => {
         const line = bytes.slice(offset, i + 1);
@@ -49,7 +50,7 @@ export function getLines(bytes: Uint8Array): Uint8Array[] {
     });
 }
 
-export function concatBytes(bytesArray: Uint8Array[]): Uint8Array {
+export function concatBytes(bytesArray: Lines): Uint8Array {
     const buf = new Uint8Array(bytesArray.reduce((acc, b) => acc + b.length, 0));
     let offset = 0;
     bytesArray.forEach(b => {
@@ -110,12 +111,12 @@ export function isFoldedLine(bytes: Uint8Array): boolean {
     return isWsp(bytes[0] ?? 0)
 }
 
-export function dropFoldedLine(lines: Uint8Array[]): Uint8Array[] {
+export function dropFoldedLine(lines: Lines): Lines {
     const idx = lines.findIndex(l => !isFoldedLine(l));
     return (idx <= 0) ? lines : lines.slice(idx);
 }
 
-function replaceLine(lines: Uint8Array[], matchLine: (line: Uint8Array) => boolean, makeLine: () => string): Uint8Array[] {
+function replaceLine(lines: Lines, matchLine: (line: Uint8Array) => boolean, makeLine: () => string): Lines {
     const idx = lines.findIndex(matchLine);
     if (idx === -1)
         return lines;
@@ -127,22 +128,23 @@ function replaceLine(lines: Uint8Array[], matchLine: (line: Uint8Array) => boole
     return p1.concat(p2, p3);
 }
 
-export function replaceDateLine(lines: Uint8Array[]): Uint8Array[] {
+export function replaceDateLine(lines: Lines): Lines {
     return replaceLine(lines, isDateLine, makeNowDateLine);
 }
 
-export function replaceMessageIdLine(lines: Uint8Array[]): Uint8Array[] {
+export function replaceMessageIdLine(lines: Lines): Lines {
     return replaceLine(lines, isMessageIdLine, makeRandomMessageIdLine);
 }
 
 export function replaceHeader(header: Uint8Array, updateDate: boolean, updateMessageId: boolean): Uint8Array {
     const lines = getLines(header);
     const [d, m] = [updateDate, updateMessageId]
-    const newLines = (d && m) ? replaceMessageIdLine(replaceDateLine(lines))
+    return concatBytes(
+        (d && m) ? replaceMessageIdLine(replaceDateLine(lines))
         : (d && !m) ? replaceDateLine(lines)
         : (!d && m) ? replaceMessageIdLine(lines)
-        : lines;
-    return concatBytes(newLines);
+        : lines
+    );
 }
 
 const EMPTY_LINE: Uint8Array = Uint8Array.from([CR, LF, CR, LF]);
