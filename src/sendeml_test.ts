@@ -38,7 +38,7 @@ Deno.test("matchHeader", () => {
     assertEquals(test("", "Test:"), false);
     assertEquals(test("T", "Test:"), false);
     assertEquals(test("Test", "Test:"), false);
-    assertEquals(test("Xest:", "Test:"), false);
+    assertEquals(test("X-Test:", "Test:"), false);
 
     assertThrows(() =>{
         eml.matchHeader("Test: xxx".toBytes(), "".toBytes());
@@ -87,11 +87,35 @@ Deno.test("makeDateLine", () => {
     assert(line.length <= 80);
 });
 
+Deno.test("padZero2", () => {
+    const f = eml.padZero2;
+
+    assertEquals(f(0), "00");
+    assertEquals(f(1), "01");
+    assertEquals(f(2), "02");
+    assertEquals(f(10), "10");
+    assertEquals(f(20), "20");
+});
+
+Deno.test("makeTimeZoneOffset", () => {
+    const f = eml.makeTimeZoneOffset;
+
+    assertEquals(f(-540), "+0900");
+    assertEquals(f(-515), "+0835");
+    assertEquals(f(-480), "+0800");
+    assertEquals(f(0), "+0000")
+
+    assertEquals(f(540), "-0900");
+    assertEquals(f(515), "-0835");
+    assertEquals(f(480), "-0800");
+    assertEquals(f(1), "-0001");
+});
+
 Deno.test("makeRandomMessageIdLine", () => {
     const line = eml.makeRandomMessageIdLine();
     assert(line.startsWith("Message-ID:"));
     assert(line.endsWith(eml.CRLF));
-    assert(line.length <= 80);
+    assertEquals(line.length, 78);
 });
 
 function lfToCRLF(text: string): string {

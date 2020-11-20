@@ -78,22 +78,29 @@ export function isMessageIdLine(line: Uint8Array): boolean {
     return matchHeader(line, MESSAGE_ID_BYTES);
 }
 
-export function makeNowDateLine(): string {
-    const lzero = (n: number): string => ('0' + n).slice(-2);
+// 0 => 00, 1 => 01, 10 => 10
+export function padZero2(n: number): string {
+    return ('0' + n).slice(-2);
+}
 
+export function makeTimeZoneOffset(min: number): string {
+    const first = padZero2(Math.floor(Math.abs(min) / 60));
+    const last = padZero2(Math.abs(min) % 60);
+    return (min <= 0 ? "+" : "-") + first + last;
+}
+
+export function makeNowDateLine(): string {
     const obj = new Date;
     const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][obj.getDay()];
-    const date = lzero(obj.getDate());
+    const date = padZero2(obj.getDate());
     const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][obj.getMonth()];
     const year = obj.getFullYear();
-    const hours = lzero(obj.getHours());
-    const minutes = lzero(obj.getMinutes());
-    const seconds = lzero(obj.getSeconds());
-
-    const offset = (-obj.getTimezoneOffset());
-    const timezone = lzero(offset / 60) + lzero(offset % 60);
+    const hours = padZero2(obj.getHours());
+    const minutes = padZero2(obj.getMinutes());
+    const seconds = padZero2(obj.getSeconds());
+    const zone = makeTimeZoneOffset(obj.getTimezoneOffset());
     
-    return `Date: ${day}, ${date} ${month} ${year} ${hours}:${minutes}:${seconds} +${timezone}${CRLF}`;
+    return `Date: ${day}, ${date} ${month} ${year} ${hours}:${minutes}:${seconds} ${zone}${CRLF}`;
 }
 
 export function makeRandomMessageIdLine(): string {
