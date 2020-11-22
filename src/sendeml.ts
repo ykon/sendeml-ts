@@ -80,10 +80,16 @@ export function isMessageIdLine(line: Uint8Array): boolean {
 
 // 0 => 00, 1 => 01, 10 => 10
 export function padZero2(n: number): string {
+    if (n < 0 || n > 99)
+        throw new Error("invalid number");
+
     return ('0' + n).slice(-2);
 }
 
 export function makeTimeZoneOffset(min: number): string {
+    if (min < -840 || min > 720)
+        throw new Error("invalid number");
+
     const first = padZero2(Math.floor(Math.abs(min) / 60));
     const last = padZero2(Math.abs(min) % 60);
     return (min <= 0 ? "+" : "-") + first + last;

@@ -8,7 +8,7 @@ import {
     assertThrows
 } from "https://deno.land/std/testing/asserts.ts";
 
-import * as eml from "./sendeml.ts";
+import * as seml from "./sendeml.ts";
 
 declare global {
     interface String {
@@ -27,94 +27,109 @@ Uint8Array.prototype.toUtf8String = function(this: Uint8Array): string {
     return new TextDecoder().decode(this);
 }
 
+function assertTrue(actual: boolean): void {
+    assertEquals(actual, true);
+}
+
+function assertFalse(actual: boolean): void {
+    assertEquals(actual, false);
+}
+
 Deno.test("matchHeader", () => {
-    const test = (s1: string, s2: string): boolean =>
-        eml.matchHeader(s1.toBytes(), s2.toBytes());
+    const f = (s1: string, s2: string) => seml.matchHeader(s1.toBytes(), s2.toBytes());
 
-    assertEquals(test("Test:", "Test:"), true);
-    assertEquals(test("Test:   ", "Test:"), true);
-    assertEquals(test("Test: xxx", "Test:"), true);
+    assertTrue(f("Test:", "Test:"));
+    assertTrue(f("Test:   ", "Test:"));
+    assertTrue(f("Test: xxx", "Test:"));
 
-    assertEquals(test("", "Test:"), false);
-    assertEquals(test("T", "Test:"), false);
-    assertEquals(test("Test", "Test:"), false);
-    assertEquals(test("X-Test:", "Test:"), false);
+    assertFalse(f("", "Test:"));
+    assertFalse(f("T", "Test:"));
+    assertFalse(f("Test", "Test:"));
+    assertFalse(f("X-Test:", "Test:"));
 
-    assertThrows(() =>{
-        eml.matchHeader("Test: xxx".toBytes(), "".toBytes());
+    assertThrows(() => {
+        f("Test: XXX", "")
     }, Error);
 });
 
 Deno.test("isDateLine", () => {
-    const test = (s: string): boolean => eml.isDateLine(s.toBytes())
+    const f = (s: string) => seml.isDateLine(s.toBytes())
 
-    assertEquals(test("Date: xxx"), true);
-    assertEquals(test("Date:xxx"), true);
-    assertEquals(test("Date:"), true);
-    assertEquals(test("Date:   "), true);
+    assertTrue(f("Date: xxx"));
+    assertTrue(f("Date:xxx"));
+    assertTrue(f("Date:"));
+    assertTrue(f("Date:   "));
 
-    assertEquals(test(""), false);
-    assertEquals(test("Date"), false);
-    assertEquals(test("xxx: Date"), false);
-    assertEquals(test("X-Date: xxx"), false);
+    assertFalse(f(""));
+    assertFalse(f("Date"));
+    assertFalse(f("xxx: Date"));
+    assertFalse(f("X-Date: xxx"));
 });
 
 Deno.test("isMessageIdLine", () => {
-    const test = (s: string): boolean => eml.isMessageIdLine(s.toBytes())
+    const f = (s: string) => seml.isMessageIdLine(s.toBytes())
 
-    assertEquals(test("Message-ID: xxx"), true);
-    assertEquals(test("Message-ID:xxx"), true);
-    assertEquals(test("Message-ID:"), true);
-    assertEquals(test("Message-ID:   "), true);
+    assertTrue(f("Message-ID: xxx"));
+    assertTrue(f("Message-ID:xxx"));
+    assertTrue(f("Message-ID:"));
+    assertTrue(f("Message-ID:   "));
 
-    assertEquals(test(""), false);
-    assertEquals(test("Message-ID"), false);
-    assertEquals(test("xxx: Message-ID"), false);
-    assertEquals(test("X-Message-ID: xxx"), false);
+    assertFalse(f(""));
+    assertFalse(f("Message-ID"));
+    assertFalse(f("xxx: Message-ID"));
+    assertFalse(f("X-Message-ID: xxx"));
 });
   
 Deno.test("isNotUpdate", () => {;
-    assertEquals(eml.isNotUpdate(true, true), false);
-    assertEquals(eml.isNotUpdate(true, false), false);
-    assertEquals(eml.isNotUpdate(false, true), false);
-    assertEquals(eml.isNotUpdate(false, false), true);
+    const f = seml.isNotUpdate;
+
+    assertTrue(f(false, false));
+
+    assertFalse(f(true, true));
+    assertFalse(f(true, false));
+    assertFalse(f(false, true));
 });
 
 Deno.test("makeDateLine", () => {
-    const line = eml.makeNowDateLine();
+    const line = seml.makeNowDateLine();
     assert(line.startsWith("Date:"));
-    assert(line.endsWith(eml.CRLF));
+    assert(line.endsWith(seml.CRLF));
     assert(line.length <= 80);
 });
 
 Deno.test("padZero2", () => {
-    const f = eml.padZero2;
+    const f = seml.padZero2;
 
     assertEquals(f(0), "00");
     assertEquals(f(1), "01");
-    assertEquals(f(2), "02");
     assertEquals(f(10), "10");
-    assertEquals(f(20), "20");
+    assertEquals(f(99), "99");
+
+    assertThrows(() => f(-1), Error);
+    assertThrows(() => f(100), Error);
 });
 
 Deno.test("makeTimeZoneOffset", () => {
-    const f = eml.makeTimeZoneOffset;
+    const f = seml.makeTimeZoneOffset;
 
+    assertEquals(f(-840), "+1400");
     assertEquals(f(-540), "+0900");
-    assertEquals(f(-515), "+0835");
     assertEquals(f(-480), "+0800");
     assertEquals(f(0), "+0000")
 
+    assertEquals(f(720), "-1200")
     assertEquals(f(540), "-0900");
-    assertEquals(f(515), "-0835");
     assertEquals(f(480), "-0800");
     assertEquals(f(1), "-0001");
+
+    assertThrows(() => f(-841), Error);
+    assertThrows(() => f(721), Error);
 });
 
 Deno.test("makeRandomMessageIdLine", () => {
-    const line = eml.makeRandomMessageIdLine();
+    const line = seml.makeRandomMessageIdLine();
     assert(line.startsWith("Message-ID:"));
-    assert(line.endsWith(eml.CRLF));
+    assert(line.endsWith(seml.CRLF));
     assertEquals(line.length, 78);
 });
 
@@ -236,22 +251,26 @@ Deno.test("getHeaderLine", () => {
 });
 
 Deno.test("findCr", () => {
+    const f = seml.findCr;
+
     const mail = makeSimpleMail();
-    assertEquals(eml.findCr(mail, 0), 33);
-    assertEquals(eml.findCr(mail, 34), 48);
-    assertEquals(eml.findCr(mail, 58), 74);
+    assertEquals(f(mail, 0), 33);
+    assertEquals(f(mail, 34), 48);
+    assertEquals(f(mail, 58), 74);
 });
 
 Deno.test("findLf", () => {
+    const f = seml.findLf;
+
     const mail = makeSimpleMail();
-    assertEquals(eml.findLf(mail, 0), 34);
-    assertEquals(eml.findLf(mail, 35), 49);
-    assertEquals(eml.findLf(mail, 59), 75);
+    assertEquals(f(mail, 0), 34);
+    assertEquals(f(mail, 35), 49);
+    assertEquals(f(mail, 59), 75);
 });
 
 Deno.test("findAllLf", () => {
     const mail = makeSimpleMail();
-    const indices = eml.findAllLf(mail);
+    const indices = seml.findAllLf(mail);
 
     assertEquals(indices[0], 34);
     assertEquals(indices[1], 49);
@@ -264,7 +283,7 @@ Deno.test("findAllLf", () => {
 
 Deno.test("getLines", () => {
     const mail = makeSimpleMail();
-    const lines = eml.getLines(mail);
+    const lines = seml.getLines(mail);
 
     assertEquals(lines.length, 13);
     assertEquals(lines[0].toUtf8String(), "From: a001 <a001@ah62.example.jp>\r\n");
@@ -277,45 +296,50 @@ Deno.test("getLines", () => {
 });
 
 Deno.test("isWsp", () => {
-    assertEquals(eml.isWsp(" ".charCodeAt(0)), true);
-    assertEquals(eml.isWsp("\t".charCodeAt(0)), true);
-    assertEquals(eml.isWsp("\0".charCodeAt(0)), false);
-    assertEquals(eml.isWsp("a".charCodeAt(0)), false);
-    assertEquals(eml.isWsp("b".charCodeAt(0)), false);
+    const f = (s: string) => seml.isWsp(s.charCodeAt(0));
+
+    assertTrue(f(" "));
+    assertTrue(f("\t"));
+
+    assertFalse(f("\0"));
+    assertFalse(f("a"));
+    assertFalse(f("b"));
 });
 
 Deno.test("isFoldedLine", () => {
-    const test = (...ss: string[]): boolean =>
-        eml.isFoldedLine(Uint8Array.from(ss.map(s => s.charCodeAt(0))))
+    const f = (...ss: string[]): boolean =>
+        seml.isFoldedLine(Uint8Array.from(ss.map(s => s.charCodeAt(0))))
 
-    assertEquals(test(" ", "a", "b"), true);
-    assertEquals(test("\t", "a", "b"), true);
-    assertEquals(test("\0", "a", "b"), false);
-    assertEquals(test("a", "a", " "), false);
-    assertEquals(test("b", "a", "\t"), false);
+    assertTrue(f(" ", "a", "b"));
+    assertTrue(f("\t", "a", "b"));
+
+    assertFalse(f("\0", "a", "b"));
+    assertFalse(f("a", "a", " "));
+    assertFalse(f("b", "a", "\t"));
 });
 
 Deno.test("concatBytes", () => {
     const mail = makeSimpleMail();
-    const lines = eml.getLines(mail);
-    const newMail = eml.concatBytes(lines);
+    const lines = seml.getLines(mail);
+    const newMail = seml.concatBytes(lines);
     assertEquals(newMail, mail);
 });
 
 Deno.test("replaceHeader", () => {
+    const f = seml.replaceHeader;
+
     const mail = makeSimpleMail();
     const dateLine = getDateLine(mail);
     const midLine = getMessageIdLine(mail);
 
-    const rHeaderNo = eml.replaceHeader(mail, false, false);
+    const rHeaderNo = f(mail, false, false);
     assertEquals(rHeaderNo, mail);
 
-    const rHeader = eml.replaceHeader(mail, true, true);
+    const rHeader = f(mail, true, true);
     assertNotEquals(rHeader, mail);
 
-    const replace = (header: Uint8Array, updateDate: boolean, updateMessageId: boolean): [string, string] => {
-        const rHeader = eml.replaceHeader(header, updateDate, updateMessageId);
-        assertNotEquals(rHeader, header);
+    const replace = (header: Uint8Array, updateDate: boolean, updateMessageId: boolean) => {
+        const rHeader = f(header, updateDate, updateMessageId);
         return [getDateLine(rHeader), getMessageIdLine(rHeader)];
     };
 
@@ -337,66 +361,73 @@ Deno.test("replaceHeader", () => {
     assertEquals([...fMidLine].filter(c => c == "\n").length, 1);
 });
 
-const CR = eml.CR;
-const LF = eml.LF;
+const CR = seml.CR;
+const LF = seml.LF;
 
 Deno.test("hasNextLfCrLf", () => {
+    const f = (a: number[], n: number) => seml.hasNextLfCrLf(Uint8Array.of(...a), n);
     const zero = "\0".charCodeAt(0);
 
-    assertEquals(eml.hasNextLfCrLf(Uint8Array.of(CR, LF, CR, LF), 0), true);
-    assertEquals(eml.hasNextLfCrLf(Uint8Array.of(zero, CR, LF, CR, LF), 1), true);
+    assertTrue(f([CR, LF, CR, LF], 0));
+    assertTrue(f([zero, CR, LF, CR, LF], 1));
 
-    assertEquals(eml.hasNextLfCrLf(Uint8Array.of(CR, LF, CR, LF), 1), false);
-    assertEquals(eml.hasNextLfCrLf(Uint8Array.of(CR, LF, CR, zero), 0), false);
-    assertEquals(eml.hasNextLfCrLf(Uint8Array.of(CR, LF, CR, LF, zero), 1), false);
+    assertFalse(f([CR, LF, CR, LF], 1));
+    assertFalse(f([CR, LF, CR, zero], 0));
+    assertFalse(f([CR, LF, CR, LF, zero], 1));
 });
 
 Deno.test("findEmptyLine", () => {
+    const f = seml.findEmptyLine;
+
     const mail = makeSimpleMail();
-    assertEquals(eml.findEmptyLine(mail), 414);
+    assertEquals(f(mail), 414);
 
     const invalidMail = makeInvalidMail();
-    assertEquals(eml.findEmptyLine(invalidMail), -1);
+    assertEquals(f(invalidMail), -1);
 });
 
 Deno.test("splitMail", () => {
+    const f = seml.splitMail;
+
     const mail = makeSimpleMail();
-    const headerBody = eml.splitMail(mail);
-    assertEquals(headerBody.ok, true);
+    const headerBody = f(mail);
+    assertTrue(headerBody.ok);
 
     const [header, body] = headerBody.res!;
     assertEquals(header, mail.slice(0, 414));
     assertEquals(body, mail.slice(414 + 4));
 
     const invalidMail = makeInvalidMail();
-    assertEquals(eml.splitMail(invalidMail).ok, false);
+    assertFalse(f(invalidMail).ok);
 });
 
 Deno.test("combineMail", () => {
     const mail = makeSimpleMail();
-    const [header, body] = eml.splitMail(mail).res!;
-    const newMail = eml.combineMail(header, body);
+    const [header, body] = seml.splitMail(mail).res!;
+    const newMail = seml.combineMail(header, body);
     assertEquals(newMail, mail);
 });
 
 Deno.test("dropFoldedLine", () => {
+    const f = seml.dropFoldedLine;
+
     const fMail = makeFoldedMail();
-    const lines = eml.getLines(fMail);
-    assertEquals(eml.dropFoldedLine(lines), lines);
+    const lines = seml.getLines(fMail);
+    assertEquals(f(lines), lines);
 
     const f_lines = lines.slice(6);
     assert(f_lines[0].toUtf8String().startsWith(" Sun,"));
-    const d_lines = eml.dropFoldedLine(f_lines);
+    const d_lines = f(f_lines);
     assert(d_lines[0].toUtf8String().startsWith("User-Agent:"));
 });
 
 Deno.test("replaceDateLine", () => {
     const fMail = makeFoldedMail();
-    const lines = eml.getLines(fMail);
-    const newLines = eml.replaceDateLine(lines);
+    const lines = seml.getLines(fMail);
+    const newLines = seml.replaceDateLine(lines);
     assertNotEquals(newLines, lines);
 
-    const newMail = eml.concatBytes(newLines);
+    const newMail = seml.concatBytes(newLines);
     assertNotEquals(newMail, fMail);
     assertNotEquals(getDateLine(newMail), getDateLine(fMail));
     assertEquals(getMessageIdLine(newMail), getMessageIdLine(fMail));
@@ -404,11 +435,11 @@ Deno.test("replaceDateLine", () => {
 
 Deno.test("replaceMessageIdLine", () => {
     const fMail = makeFoldedMail();
-    const lines = eml.getLines(fMail);
-    const newLines = eml.replaceMessageIdLine(lines);
+    const lines = seml.getLines(fMail);
+    const newLines = seml.replaceMessageIdLine(lines);
     assertNotEquals(newLines, lines);
 
-    const newMail = eml.concatBytes(newLines);
+    const newMail = seml.concatBytes(newLines);
     assertNotEquals(newMail, fMail);
     assertNotEquals(getMessageIdLine(newMail), getMessageIdLine(fMail));
     assertEquals(getDateLine(newMail), getDateLine(fMail));
@@ -416,72 +447,79 @@ Deno.test("replaceMessageIdLine", () => {
 
 Deno.test("replaceMail", () => {
     const mail = makeSimpleMail();
-    const rMailNo = eml.replaceMail(mail, false, false);
+    const rMailNo = seml.replaceMail(mail, false, false);
     assertEquals(rMailNo.res!!, mail);
 
-    const rMail = eml.replaceMail(mail, true, true);
+    const rMail = seml.replaceMail(mail, true, true);
     assertNotEquals(rMail, mail);
     assertEquals(rMail.res!!.slice(rMail.res!!.length - 100), mail.slice(mail.length - 100));
 
     const invalidMail = makeInvalidMail();
-    assertEquals(eml.replaceMail(invalidMail, true, true).ok, false);
+    assertFalse(seml.replaceMail(invalidMail, true, true).ok);
 });
 
 Deno.test("getAndMapSettings", () => {
-    const settings = eml.mapSettings(eml.getSettingsFromText(eml.makeJsonSample()).json!);
+    const settings = seml.mapSettings(seml.getSettingsFromText(seml.makeJsonSample()).json!);
     assertEquals(settings.smtpHost, "172.16.3.151");
     assertEquals(settings.smtpPort, 25);
     assertEquals(settings.fromAddress, "a001@ah62.example.jp");
     assertEquals(settings.toAddresses, ["a001@ah62.example.jp", "a002@ah62.example.jp", "a003@ah62.example.jp"]);
     assertEquals(settings.emlFiles, ["test1.eml", "test2.eml", "test3.eml"])
-    assertEquals(settings.updateDate, true);
-    assertEquals(settings.updateMessageId, true);
-    assertEquals(settings.useParallel, false);
+    assertTrue(settings.updateDate);
+    assertTrue(settings.updateMessageId);
+    assertFalse(settings.useParallel);
 });
 
 Deno.test("checkSettings", () => {
-    const checkNoKey = (key: string) => {
-        const json = eml.makeJsonSample();
+    const f = (key: string) => {
+        const json = seml.makeJsonSample();
         const noKey = json.replace(key, `X-${key}`);
-        return eml.checkSettings(eml.getSettingsFromText(noKey).json!)
+        return seml.checkSettings(seml.getSettingsFromText(noKey).json!)
     };
 
-    assertEquals(checkNoKey("smtpHost").ok, false);
-    assertEquals(checkNoKey("smtpPort").ok, false);
-    assertEquals(checkNoKey("fromAddress").ok, false);
-    assertEquals(checkNoKey("toAddresses").ok, false);
-    assertEquals(checkNoKey("emlFiles").ok, false);
+    assertTrue(f("updateDate").ok);
+    assertTrue(f("updateMessageId").ok);
+    assertTrue(f("useParallel").ok);
 
-    assertEquals(checkNoKey("updateDate").ok, true);
-    assertEquals(checkNoKey("updateMessageId").ok, true);
-    assertEquals(checkNoKey("useParallel").ok, true);
+    assertFalse(f("smtpHost").ok);
+    assertFalse(f("smtpPort").ok);
+    assertFalse(f("fromAddress").ok);
+    assertFalse(f("toAddresses").ok);
+    assertFalse(f("emlFiles").ok);
 });
 
 Deno.test("replaceCrlfDot", () => {
-    assertEquals(eml.replaceCrlfDot("TEST"), "TEST");
-    assertEquals(eml.replaceCrlfDot("CRLF"), "CRLF");
-    assertEquals(eml.replaceCrlfDot(eml.CRLF), eml.CRLF);
-    assertEquals(eml.replaceCrlfDot("."), ".");
-    assertEquals(eml.replaceCrlfDot(`${eml.CRLF}.`), "<CRLF>.");
+    const f = seml.replaceCrlfDot;
+
+    assertEquals(f("TEST"), "TEST");
+    assertEquals(f("CRLF"), "CRLF");
+    assertEquals(f(seml.CRLF), seml.CRLF);
+    assertEquals(f("."), ".");
+    assertEquals(f(`${seml.CRLF}.`), "<CRLF>.");
 });
 
 Deno.test("isLastReply", () => {
-    assertEquals(eml.isLastReply("250-First line"), false);
-    assertEquals(eml.isLastReply("250-Second line"), false);
-    assertEquals(eml.isLastReply("250-234 Text beginning with numbers"), false);
-    assertEquals(eml.isLastReply("250 The last line"), true);
+    const f = seml.isLastReply;
+
+    assertFalse(f("250-First line"));
+    assertFalse(f("250-Second line"));
+    assertFalse(f("250-234 Text beginning with numbers"));
+    assertTrue(f("250 The last line"));
 });
 
 Deno.test("isPositiveReply", () => {
-    assertEquals(eml.isPositiveReply("200 xxx"), true);
-    assertEquals(eml.isPositiveReply("300 xxx"), true);
-    assertEquals(eml.isPositiveReply("400 xxx"), false);
-    assertEquals(eml.isPositiveReply("500 xxx"), false);
-    assertEquals(eml.isPositiveReply("xxx 200"), false);
-    assertEquals(eml.isPositiveReply("xxx 300"), false);
+    const f = seml.isPositiveReply;
+
+    assertTrue(f("200 xxx"));
+    assertTrue(f("300 xxx"));
+
+    assertFalse(f("400 xxx"));
+    assertFalse(f("500 xxx"));
+    assertFalse(f("xxx 200"));
+    assertFalse(f("xxx 300"));
 });
 
-function makeTestSendCmd(expected: string): eml.SendCmd {
+function makeTestSendCmd(expected: string): seml.SendCmd {
     return async (cmd: string) => {
         assertEquals(cmd, expected);
         return {ok: true, msg: cmd}
@@ -489,11 +527,11 @@ function makeTestSendCmd(expected: string): eml.SendCmd {
 }
 
 Deno.test("sendHello", () => {
-    eml.sendHello(makeTestSendCmd("EHLO localhost"));
+    seml.sendHello(makeTestSendCmd("EHLO localhost"));
 });
 
 Deno.test("sendFrom", () => {
-    eml.sendFrom(makeTestSendCmd("MAIL FROM: <a001@ah62.example.jp>"), "a001@ah62.example.jp");
+    seml.sendFrom(makeTestSendCmd("MAIL FROM: <a001@ah62.example.jp>"), "a001@ah62.example.jp");
 });
 
 Deno.test("sendRcptTo", () => {
@@ -504,70 +542,70 @@ Deno.test("sendRcptTo", () => {
         return {ok: true, msg: cmd};
     };
 
-    eml.sendRcptTo(test, ["a001@ah62.example.jp", "a002@ah62.example.jp", "a003@ah62.example.jp"]);
+    seml.sendRcptTo(test, ["a001@ah62.example.jp", "a002@ah62.example.jp", "a003@ah62.example.jp"]);
 });
 
 Deno.test("sendData", () => {
-    eml.sendData(makeTestSendCmd("DATA"));
+    seml.sendData(makeTestSendCmd("DATA"));
 });
 
 Deno.test("sendCrlfDot", () => {
-    eml.sendCrlfDot(makeTestSendCmd("\r\n."));
+    seml.sendCrlfDot(makeTestSendCmd("\r\n."));
 });
 
 Deno.test("sendQuit", () => {
-    eml.sendQuit(makeTestSendCmd("QUIT"));
+    seml.sendQuit(makeTestSendCmd("QUIT"));
 });
 
 Deno.test("sendRset", () => {
-    eml.sendRset(makeTestSendCmd("RSET"));
+    seml.sendRset(makeTestSendCmd("RSET"));
 });
 
 Deno.test("checkJsonValue", () => {
-    function check(jsonStr: string, type: string): eml.ErrorResult {
-        return eml.checkJsonValue(JSON.parse(jsonStr), "test", type);
+    function f(jsonStr: string, type: string): seml.ErrorResult {
+        return seml.checkJsonValue(JSON.parse(jsonStr), "test", type);
     }
 
     function checkError(jsonStr: string, type: string, expected: string) {
-        const res = check(jsonStr, type);
-        assertEquals(res.ok, false);
+        const res = f(jsonStr, type);
+        assertFalse(res.ok);
         assertEquals(res.msg!, expected);
     }
 
     const jsonStr = `{"test": "172.16.3.151"}`;
-    assertEquals(check(jsonStr, "string").ok, true);
-    assertEquals(check(jsonStr, "number").ok, false);
+    assertTrue(f(jsonStr, "string").ok);
+    assertFalse(f(jsonStr, "number").ok);
     checkError(jsonStr, "boolean", "test: Invalid type: 172.16.3.151");
 
     const jsonNumber = `{"test": 172}`;
-    assertEquals(check(jsonNumber, "number").ok, true);
-    assertEquals(check(jsonNumber, "string").ok, false);
+    assertTrue(f(jsonNumber, "number").ok);
+    assertFalse(f(jsonNumber, "string").ok);
     checkError(jsonNumber, "boolean", "test: Invalid type: 172");
 
     const jsonTrue = `{"test": true}`;
-    assertEquals(check(jsonTrue, "boolean").ok, true);
-    assertEquals(check(jsonTrue, "string").ok, false);
+    assertTrue(f(jsonTrue, "boolean").ok);
+    assertFalse(f(jsonTrue, "string").ok);
     checkError(jsonTrue, "number", "test: Invalid type: true");
 
     const jsonFalse = `{"test": false}`;
-    assertEquals(check(jsonFalse, "boolean").ok, true);
-    assertEquals(check(jsonFalse, "string").ok, false);
+    assertTrue(f(jsonFalse, "boolean").ok);
+    assertFalse(f(jsonFalse, "string").ok);
     checkError(jsonFalse, "number", "test: Invalid type: false");
 });
 
 Deno.test("checkJsonArrayValue", () => {
-    function check(jsonStr: string, type: string): eml.ErrorResult {
-        return eml.checkJsonArrayValue(JSON.parse(jsonStr), "test", type);
+    function f(jsonStr: string, type: string): seml.ErrorResult {
+        return seml.checkJsonArrayValue(JSON.parse(jsonStr), "test", type);
     }
 
     function checkError(jsonStr: string, type: string, expected: string) {
-        const res = check(jsonStr, type);
-        assertEquals(res.ok, false);
+        const res = f(jsonStr, type);
+        assertFalse(res.ok);
         assertEquals(res.msg!, expected);
     }
 
     const jsonArray = `{"test": ["172.16.3.151", "172.16.3.152", "172.16.3.153"]}`;
-    assertEquals(check(jsonArray, "string").ok, true);
+    assertTrue(f(jsonArray, "string").ok);
 
     const jsonStr = `{"test": "172.16.3.151"}`;
     checkError(jsonStr, "string", "test: Invalid type (array): 172.16.3.151");
