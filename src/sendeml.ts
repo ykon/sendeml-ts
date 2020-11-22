@@ -150,14 +150,18 @@ export function replaceMessageIdLine(lines: Lines): Lines {
 }
 
 export function replaceHeader(header: Uint8Array, updateDate: boolean, updateMessageId: boolean): Uint8Array {
-    const lines = getLines(header);
-    const [d, m] = [updateDate, updateMessageId]
-    return concatBytes(
-        (d && m) ? replaceMessageIdLine(replaceDateLine(lines))
-        : (d && !m) ? replaceDateLine(lines)
-        : (!d && m) ? replaceMessageIdLine(lines)
-        : lines
-    );
+    function replace(): Lines {
+        const lines = getLines(header);
+        const [d, m] = [updateDate, updateMessageId];
+
+        if (d && m) return replaceMessageIdLine(replaceDateLine(lines));
+        if (d && !m) return replaceDateLine(lines);
+        if (!d && m) return replaceMessageIdLine(lines);
+
+        return lines;
+    }
+
+    return concatBytes(replace());
 }
 
 const EMPTY_LINE: Uint8Array = Uint8Array.from([CR, LF, CR, LF]);
